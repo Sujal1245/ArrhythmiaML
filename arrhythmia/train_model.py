@@ -68,7 +68,7 @@ model.compile(
 # ── Callbacks ────────────────────────────────────────────────────────────
 cb = [
     callbacks.ModelCheckpoint('best_model.keras', save_best_only=True,
-                               monitor='val_accuracy', verbose=1),
+                              monitor='val_accuracy', verbose=1),
     callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.5,
                                 patience=5, verbose=1),
     callbacks.EarlyStopping(monitor='val_loss', patience=10,
