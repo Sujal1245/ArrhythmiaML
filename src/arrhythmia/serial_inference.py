@@ -1,7 +1,8 @@
 # serial_inference.py
 import matplotlib
-matplotlib.use('MacOSX')    # ← must be before any other import
+matplotlib.use('MacOSX')
 
+from pathlib import Path
 import serial
 import numpy as np
 import tensorflow as tf
@@ -11,84 +12,66 @@ import matplotlib.gridspec as gridspec
 import collections
 import time
 
-# ── Config ────────────────────────────────────────────────────────────────
-PORT       = '/dev/cu.usbserial-0001'  # ← change this to your port
-BAUD       = 115200
-FS         = 360
-WINDOW     = 280
-BEFORE     = 100
-AFTER      = WINDOW - BEFORE
+ROOT       = Path(__file__).resolve().parents[2]
+MODELS_DIR = ROOT / 'models' / 'arrhythmia'
 
-# ADC conversion: ESP32 12-bit (0–4095) → millivolts (0–3300mV) → centred
-ADC_MAX    = 4095
-V_REF      = 3300    # mV
+PORT   = '/dev/cu.usbserial-0001'  # ← change to your port
+BAUD   = 115200
+FS     = 360
+WINDOW = 280
+BEFORE = 100
+AFTER  = WINDOW - BEFORE
+
+ADC_MAX = 4095
+V_REF   = 3300
 
 CLASS_NAMES  = ['Normal (N)', 'Supraventricular (S)',
                 'Ventricular (V)', 'Fusion (F)', 'Unknown (Q)']
 CLASS_COLORS = ['#2ecc71', '#3498db', '#e74c3c', '#f39c12', '#9b59b6']
 
-# ── Load model ────────────────────────────────────────────────────────────
 print("Loading model...")
-model = tf.keras.models.load_model('best_model.keras')
+model = tf.keras.models.load_model(MODELS_DIR / 'best_model.keras')
 print("Model ready.\n")
 
-# ── Bandpass filter ───────────────────────────────────────────────────────
+
 def bandpass(signal, fs=360, lo=0.5, hi=40.0):
     nyq = fs / 2.0
-    b, a = butter(4, [lo/nyq, hi/nyq], btype='band')
+    b, a = butter(4, [lo / nyq, hi / nyq], btype='band')
     return filtfilt(b, a, signal)
 
-# ── Simple R-peak detector (derivative-based) ─────────────────────────────
+
 class RPeakDetector:
-    """
-    Lightweight Pan-Tompkins inspired detector.
-    Works on a rolling buffer — no need for the full wfdb annotator.
-    """
     def __init__(self, fs=360):
-        self.fs            = fs
-        self.threshold     = None
-        self.last_peak     = 0
-        self.min_rr        = int(0.2 * fs)    # 200ms minimum RR interval
-        self.signal_level  = 0.0
-        self.noise_level   = 0.0
+        self.fs           = fs
+        self.threshold    = None
+        self.last_peak    = 0
+        self.min_rr       = int(0.2 * fs)
+        self.signal_level = 0.0
+        self.noise_level  = 0.0
 
     def detect(self, buf, cursor):
-        """
-        buf    : full circular buffer (numpy array)
-        cursor : current write position in buf
-        Returns: True if an R-peak was just detected at cursor - BEFORE
-        """
         if cursor < 30:
             return False
-
-        # Derivative squared (sensitive to sharp R-peak slope)
-        window = buf[max(0, cursor-10):cursor]
+        window = buf[max(0, cursor - 10):cursor]
         diff   = np.diff(window)
         energy = np.sum(diff ** 2)
-
-        # Adaptive threshold initialisation
         if self.threshold is None:
             self.signal_level = energy
             self.threshold    = 0.5 * energy
             return False
-
-        # Update levels
         if energy > self.threshold:
             self.signal_level = 0.125 * energy + 0.875 * self.signal_level
         else:
             self.noise_level  = 0.125 * energy + 0.875 * self.noise_level
         self.threshold = self.noise_level + \
                          0.25 * (self.signal_level - self.noise_level)
-
-        # Peak condition: energy above threshold AND refractory period passed
         samples_since_last = cursor - self.last_peak
         if energy > self.threshold and samples_since_last > self.min_rr:
             self.last_peak = cursor
             return True
-
         return False
 
-# ── Setup live plot (same style as simulator) ─────────────────────────────
+
 plt.ion()
 fig = plt.figure(figsize=(14, 8), facecolor='#1a1a2e')
 fig.suptitle('Live Arrhythmia Detector  —  ESP32 + AD8232  (USB)',
@@ -96,8 +79,7 @@ fig.suptitle('Live Arrhythmia Detector  —  ESP32 + AD8232  (USB)',
 
 gs = gridspec.GridSpec(3, 2, figure=fig,
                        hspace=0.45, wspace=0.35,
-                       left=0.07, right=0.97,
-                       top=0.91, bottom=0.07)
+                       left=0.07, right=0.97, top=0.91, bottom=0.07)
 
 ax_ecg   = fig.add_subplot(gs[0, :])
 ax_conf  = fig.add_subplot(gs[1, :])
@@ -120,10 +102,9 @@ ax_ecg.set_xlim(0, 6)
 ax_ecg.set_ylim(-500, 3600)
 ax_ecg.set_ylabel('ADC value', color='#aaaaaa', fontsize=8)
 ax_ecg.set_xlabel('Time (s)',  color='#aaaaaa', fontsize=8)
-ax_ecg.set_title('Live ECG from AD8232', color='#cccccc',
-                  fontsize=9, pad=4)
+ax_ecg.set_title('Live ECG from AD8232', color='#cccccc', fontsize=9, pad=4)
 
-bars = ax_conf.barh(CLASS_NAMES, [0]*5, color=CLASS_COLORS, height=0.55)
+bars = ax_conf.barh(CLASS_NAMES, [0] * 5, color=CLASS_COLORS, height=0.55)
 ax_conf.set_xlim(0, 1)
 ax_conf.set_xlabel('Confidence', color='#aaaaaa', fontsize=8)
 ax_conf.set_title('Model confidence — current beat',
@@ -166,11 +147,10 @@ status_text = ax_ecg.text(
 
 plt.show()
 
-# ── Serial connection ─────────────────────────────────────────────────────
 print(f"Connecting to {PORT} at {BAUD} baud...")
 try:
     ser = serial.Serial(PORT, BAUD, timeout=2)
-    time.sleep(2)          # wait for ESP32 to reset after serial connect
+    time.sleep(2)
     ser.flushInput()
     print("Connected.\n")
 except serial.SerialException as e:
@@ -182,8 +162,7 @@ except serial.SerialException as e:
         print(f"  {p.device}  —  {p.description}")
     exit(1)
 
-# ── Circular sample buffer + detector ────────────────────────────────────
-BUFFER_SIZE = FS * 10       # 10 seconds of samples
+BUFFER_SIZE = FS * 10
 raw_buf     = np.zeros(BUFFER_SIZE, dtype=np.float32)
 cursor      = 0
 detector    = RPeakDetector(fs=FS)
@@ -194,7 +173,6 @@ print("Reading ECG... (Ctrl+C to stop)\n")
 
 try:
     while True:
-        # ── Read one sample from serial ───────────────────────────────
         try:
             line = ser.readline().decode('utf-8').strip()
         except UnicodeDecodeError:
@@ -203,7 +181,7 @@ try:
         if line == 'READY' or line == '':
             continue
 
-        if line == 'X':             # lead-off — electrode not touching skin
+        if line == 'X':
             status_text.set_text('⚠ Check electrodes')
             lost_frames += 1
             fig.canvas.flush_events()
@@ -214,11 +192,9 @@ try:
         except ValueError:
             continue
 
-        # ── Store in circular buffer ──────────────────────────────────
         raw_buf[cursor % BUFFER_SIZE] = value
         cursor += 1
 
-        # ── Update rolling ECG display ────────────────────────────────
         idx = cursor % BUFFER_SIZE
         if idx >= DISP_LEN:
             ecg_disp = raw_buf[idx - DISP_LEN:idx]
@@ -230,21 +206,17 @@ try:
 
         ecg_line.set_ydata(ecg_disp)
 
-        # Refresh plot every 18 samples (~20Hz display rate)
         if cursor % 18 == 0:
             status_text.set_text(f'● LIVE  |  Beats: {beat_count}')
             fig.canvas.draw()
             fig.canvas.flush_events()
 
-        # ── R-peak detection ──────────────────────────────────────────
         if not detector.detect(raw_buf, cursor % BUFFER_SIZE):
             continue
 
-        # Need enough samples before and after peak
         if cursor < BEFORE + AFTER:
             continue
 
-        # Extract beat window
         buf_idx = cursor % BUFFER_SIZE
         start   = buf_idx - BEFORE
         end     = buf_idx + AFTER
@@ -252,11 +224,9 @@ try:
         if start >= 0 and end < BUFFER_SIZE:
             segment = raw_buf[start:end].copy()
         else:
-            # Handle wrap-around in circular buffer
             indices = [(start + i) % BUFFER_SIZE for i in range(WINDOW)]
             segment = raw_buf[indices]
 
-        # Apply bandpass filter and normalise
         if len(segment) == WINDOW:
             try:
                 segment = bandpass(segment.astype(np.float64))
@@ -266,19 +236,16 @@ try:
         else:
             continue
 
-        # ── Model inference ───────────────────────────────────────────
         inp   = segment.reshape(1, WINDOW, 1).astype(np.float32)
         probs = model.predict(inp, verbose=0)[0]
         pred  = int(np.argmax(probs))
 
-        # ── Update confidence bars ────────────────────────────────────
         for i, (bar, txt) in enumerate(zip(bars, conf_text)):
             bar.set_width(probs[i])
             bar.set_alpha(1.0 if i == pred else 0.35)
-            txt.set_text(f'{probs[i]*100:.1f}%')
+            txt.set_text(f'{probs[i] * 100:.1f}%')
             txt.set_x(probs[i] + 0.01)
 
-        # ── Update history ────────────────────────────────────────────
         history_classes.append(pred)
         history_colors.append(CLASS_COLORS[pred])
         if len(history_classes) > MAX_HISTORY:
@@ -290,20 +257,18 @@ try:
                                 history_classes,
                                 c=history_colors, s=40, zorder=3)
 
-        # ── Update totals ─────────────────────────────────────────────
         total_counts[pred] += 1
         for bar, val in zip(count_bars, total_counts):
             bar.set_height(val)
         ax_count.set_ylim(0, max(total_counts) * 1.15 + 1)
 
-        # ── Update beat label ─────────────────────────────────────────
         beat_label.set_text(f'  {CLASS_NAMES[pred]}  ')
         beat_label.set_bbox(dict(boxstyle='round,pad=0.3',
                                   facecolor=CLASS_COLORS[pred], alpha=0.85))
 
         beat_count += 1
         print(f"Beat {beat_count:4d} | {CLASS_NAMES[pred]:25s} "
-              f"| Conf: {probs[pred]*100:.1f}%")
+              f"| Conf: {probs[pred] * 100:.1f}%")
 
 except KeyboardInterrupt:
     print(f"\nStopped. Classified {beat_count} beats.")
