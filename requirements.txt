@@ -9,3 +9,7 @@ matplotlib==3.9.4
 pandas==2.3.3
 seaborn==0.13.2
 pyserial==3.5
+
+python-socketio
+fastapi
+uvicorn

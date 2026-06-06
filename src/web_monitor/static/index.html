@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unified Cardiac Monitor</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Unified Multi-Sensor Cardiac Monitor</h1>
+            <div id="status-bar">
+                <span id="serial-status" class="status-badge">Serial: Connecting...</span>
+                <span id="screening-timer" class="status-badge hidden">Screening: 60s</span>
+            </div>
+        </header>
+
+        <main class="dashboard-grid">
+            <section class="card full-width">
+                <h2>Live ECG (AD8232)</h2>
+                <div class="chart-container">
+                    <canvas id="ecgChart"></canvas>
+                    <div id="beat-label" class="overlay-label">WAITING...</div>
+                </div>
+            </section>
+
+            <section class="card full-width">
+                <h2>Live PPG (MAX30100)</h2>
+                <div class="chart-container">
+                    <canvas id="ppgChart"></canvas>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Beat Classification</h2>
+                <div class="bars-container" id="confidence-bars">
+                    <!-- Bars will be generated here -->
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Pulse Timing (AFib)</h2>
+                <div class="chart-container">
+                    <canvas id="rrChart"></canvas>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Temperature</h2>
+                <div class="temp-display">
+                    <span id="temp-val">--.-</span><span class="unit">°C</span>
+                </div>
+                <div class="chart-container mini">
+                    <canvas id="tempChart"></canvas>
+                </div>
+            </section>
+
+            <section class="card central-status">
+                <div id="status-text">INITIALIZING...</div>
+                <button id="screen-btn" class="btn btn-green">START SCREENING</button>
+            </section>
+        </main>
+
+        <div id="report-modal" class="modal hidden">
+            <div class="modal-content">
+                <h2>UNIFIED DIAGNOSTIC REPORT</h2>
+                <div id="report-body"></div>
+                <button id="close-report" class="btn">CLOSE</button>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
