@@ -14,12 +14,12 @@ const chartOptions = {
         x: { display: false },
         y: { 
             grid: { color: '#222' },
-            ticks: { color: '#666', size: 8 }
+            ticks: { color: '#666', font: { size: 9 } }
         }
     },
     elements: {
         point: { radius: 0 },
-        line: { tension: 0.1, borderWidth: 1.5 }
+        line: { tension: 0.1, borderWidth: 2 }
     },
     plugins: { legend: { display: false } }
 };
@@ -28,9 +28,9 @@ const ecgCtx = document.getElementById('ecgChart').getContext('2d');
 const ecgChart = new Chart(ecgCtx, {
     type: 'line',
     data: {
-        labels: Array(500).fill(''),
+        labels: Array(400).fill(''),
         datasets: [{
-            data: Array(500).fill(0),
+            data: Array(400).fill(0),
             borderColor: '#00ff88',
         }]
     },
@@ -41,9 +41,9 @@ const ppgCtx = document.getElementById('ppgChart').getContext('2d');
 const ppgChart = new Chart(ppgCtx, {
     type: 'line',
     data: {
-        labels: Array(300).fill(''),
+        labels: Array(400).fill(''),
         datasets: [{
-            data: Array(300).fill(0),
+            data: Array(400).fill(0),
             borderColor: '#ff0066',
         }]
     },
@@ -54,12 +54,12 @@ const rrCtx = document.getElementById('rrChart').getContext('2d');
 const rrChart = new Chart(rrCtx, {
     type: 'line',
     data: {
-        labels: Array(60).fill(''),
+        labels: Array(100).fill(''),
         datasets: [{
-            data: Array(60).fill(800),
+            data: Array(100).fill(800),
             borderColor: '#00ff88',
             showLine: true,
-            pointRadius: 3,
+            pointRadius: 2,
             pointBackgroundColor: '#00ff88'
         }]
     },
@@ -67,7 +67,12 @@ const rrChart = new Chart(rrCtx, {
         ...chartOptions,
         scales: {
             x: { display: false },
-            y: { min: 400, max: 1500, grid: { color: '#222' } }
+            y: { 
+                min: 400, 
+                max: 1500, 
+                grid: { color: '#222' },
+                ticks: { color: '#666', font: { size: 9 } }
+            }
         }
     }
 });
@@ -76,9 +81,9 @@ const tempCtx = document.getElementById('tempChart').getContext('2d');
 const tempChart = new Chart(tempCtx, {
     type: 'line',
     data: {
-        labels: Array(60).fill(''),
+        labels: Array(100).fill(''),
         datasets: [{
-            data: Array(60).fill(36.5),
+            data: Array(100).fill(36.5),
             borderColor: '#ff9f43',
         }]
     },
@@ -203,6 +208,7 @@ socket.on('screening_complete', (report) => {
 1. ARRHYTHMIA RISK : ${report.arr_risk}
    - Abnormal Beats: ${report.abnormal_beats}
    - PVC Count: ${report.pvc_count}
+   - Unknown/Noise : ${report.unknown_beats}
 
 2. AFIB RISK       : ${report.afib_risk}
    - AFib Burden: ${report.afib_burden.toFixed(1)}%

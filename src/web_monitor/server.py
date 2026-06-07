@@ -268,8 +268,10 @@ def finish_screening():
     res = state.screening_results
     
     arr_counts = res['arr_counts']
-    abnormal_arr = sum(arr_counts[1:])
+    # Exclude index 4 (Unknown/Q) from abnormal count to reduce noise-induced false positives
+    abnormal_arr = sum(arr_counts[1:4]) 
     pvc_count = arr_counts[2]
+    unknown_count = arr_counts[4]
     
     arr_risk = "LOW"
     if pvc_count > 5 or abnormal_arr > 15: arr_risk = "HIGH"
@@ -289,6 +291,7 @@ def finish_screening():
         'arr_risk': arr_risk,
         'abnormal_beats': abnormal_arr,
         'pvc_count': pvc_count,
+        'unknown_beats': unknown_count,
         'afib_risk': afib_risk,
         'afib_burden': afib_ratio * 100,
         'max_temp': max_t,

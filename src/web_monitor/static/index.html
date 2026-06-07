@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Unified Cardiac Monitor</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
@@ -19,7 +19,7 @@
         </header>
 
         <main class="dashboard-grid">
-            <section class="card full-width">
+            <section class="card ecg-card">
                 <h2>Live ECG (AD8232)</h2>
                 <div class="chart-container">
                     <canvas id="ecgChart"></canvas>
@@ -27,28 +27,28 @@
                 </div>
             </section>
 
-            <section class="card full-width">
+            <section class="card ppg-card">
                 <h2>Live PPG (MAX30100)</h2>
                 <div class="chart-container">
                     <canvas id="ppgChart"></canvas>
                 </div>
             </section>
 
-            <section class="card">
+            <section class="card class-card">
                 <h2>Beat Classification</h2>
                 <div class="bars-container" id="confidence-bars">
                     <!-- Bars will be generated here -->
                 </div>
             </section>
 
-            <section class="card">
+            <section class="card afib-card">
                 <h2>Pulse Timing (AFib)</h2>
                 <div class="chart-container">
                     <canvas id="rrChart"></canvas>
                 </div>
             </section>
 
-            <section class="card">
+            <section class="card temp-card">
                 <h2>Temperature</h2>
                 <div class="temp-display">
                     <span id="temp-val">--.-</span><span class="unit">°C</span>
@@ -58,7 +58,7 @@
                 </div>
             </section>
 
-            <section class="card central-status">
+            <section class="card status-card">
                 <div id="status-text">INITIALIZING...</div>
                 <button id="screen-btn" class="btn btn-green">START SCREENING</button>
             </section>
